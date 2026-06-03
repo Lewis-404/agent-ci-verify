@@ -58,9 +58,20 @@ class SchemaChecker(BaseChecker):
 
         schemas = config.get("json_schemas") or {}
         for schema_path, file_pattern in schemas.items():
-            schema = self._load_schema(Path(schema_path))
-            if schema is None:
+            schema, schema_error = self._load_schema(Path(schema_path))
+            if schema_error:
+                report.checks.append(
+                    CheckResult(
+                        checker=self.name,
+                        check_name="schema_load",
+                        severity=Severity.FAIL,
+                        message=f"Could not load JSON schema: {schema_path}",
+                        detail=schema_error,
+                        file_path=str(schema_path),
+                    )
+                )
                 continue
+            assert schema is not None
             for file_path in output_dir.glob(file_pattern):
                 report.checks.append(
                     self._check_schema_compliance(file_path, schema)
@@ -161,11 +172,19 @@ class SchemaChecker(BaseChecker):
                 )
             ]
 
-    def _load_schema(self, path: Path) -> dict | None:
+    def _load_schema(self, path: Path) -> tuple[dict | None, str | None]:
         try:
-            return json.loads(path.read_text())
-        except (json.JSONDecodeError, FileNotFoundError):
-            return None
+            schema = json.loads(path.read_text())
+        except FileNotFoundError:
+            return None, f"Schema file not found: {path}"
+        except json.JSONDecodeError as error:
+            return (
+                None,
+                f"Invalid JSON schema at line {error.lineno}, col {error.colno}: {error.msg}",
+            )
+        if not isinstance(schema, dict):
+            return None, f"Schema must be a JSON object, got {type(schema).__name__}"
+        return schema, None
 
     def _check_schema_compliance(self, file_path: Path, schema: dict) -> CheckResult:
         relative_path = str(file_path)

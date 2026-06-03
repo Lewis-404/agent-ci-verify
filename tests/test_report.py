@@ -146,6 +146,19 @@ def test_report_with_extras():
     assert "(plugin)" in html
 
 
+def test_report_escapes_plugin_names_and_output_dir():
+    report = PipelineReport(
+        extras={"custom<script>": _make_checker_report("custom", passed=1)},
+    )
+
+    html = generate_report(report, Path("/tmp/<output>"))
+
+    assert "custom&lt;script&gt;" in html
+    assert "/tmp/&lt;output&gt;" in html
+    assert "custom<script>" not in html
+    assert "/tmp/<output>" not in html
+
+
 def test_report_all_none_checkers():
     """If all built-in checkers are None, still produces valid HTML."""
     report = PipelineReport()
@@ -189,6 +202,29 @@ def test_build_table_rows_with_checks():
     assert "check_b" in html
     assert 'class="badge pass"' in html
     assert 'class="badge fail"' in html
+
+
+def test_build_table_rows_escapes_check_content():
+    report = CheckerReport(
+        checker_name="test",
+        checks=[
+            CheckResult(
+                checker="test",
+                check_name='bad"<script>',
+                severity=Severity.FAIL,
+                message="<img src=x onerror=alert(1)>",
+                detail="<script>alert(1)</script>",
+            ),
+        ],
+    )
+
+    html = _build_table_rows(report)
+
+    assert 'bad"&lt;script&gt;' in html
+    assert "&lt;img src=x onerror=alert(1)&gt;" in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+    assert "<img src=x onerror=alert(1)>" not in html
+    assert "<script>alert(1)</script>" not in html
 
 
 def test_build_table_rows_truncates_long_detail():

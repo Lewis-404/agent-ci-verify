@@ -31,6 +31,20 @@ async def test_pipeline_selective(valid_output):
 
 
 @pytest.mark.asyncio
+async def test_pipeline_unknown_checker_rejects(valid_output):
+    """Unknown enabled checkers should fail instead of being silently skipped."""
+    config = DEFAULT_CONFIG.copy()
+    config["pipeline"] = {"enabled_checkers": ["scheam"]}
+
+    report = await run_pipeline(valid_output, config)
+
+    assert report.verdict == Verdict.REJECT
+    assert report.extras is not None
+    assert report.extras["scheam"].failed == 1
+    assert "Unknown checker" in report.extras["scheam"].checks[0].message
+
+
+@pytest.mark.asyncio
 async def test_pipeline_verdict_pass(valid_output, baseline_dir):
     """Clean valid output with matching baseline should PASS."""
     config = DEFAULT_CONFIG.copy()

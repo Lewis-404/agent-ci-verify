@@ -132,11 +132,12 @@ async def test_api_check_skipped_no_endpoint(valid_output):
 
 @pytest.mark.asyncio
 async def test_api_check_success():
-    """Verify API check against a real endpoint."""
+    """Verify API check success without depending on external network."""
+    mock_client = _mock_async_client(response_status=200, response_text="ok")
     config = {
         "fact": {
             "api": [{
-                "endpoint": "https://httpbin.org/get",
+                "endpoint": "https://example.com/get",
                 "method": "GET",
                 "expected_status": 200,
                 "timeout": 10,
@@ -144,19 +145,25 @@ async def test_api_check_success():
         }
     }
     checker = FactChecker(config=config)
-    report = await checker.verify(Path("/tmp"))
+    with patch("httpx.AsyncClient", return_value=mock_client):
+        report = await checker.verify(Path("/tmp"))
+
     api_checks = [c for c in report.checks if c.check_name == "fact:api"]
     assert len(api_checks) == 1
     assert api_checks[0].severity == Severity.PASS
+    mock_client.get.assert_called_once_with("https://example.com/get")
 
 
 @pytest.mark.asyncio
 async def test_api_check_timeout():
     """Verify timeout handling."""
+    mock_client = _mock_async_client(
+        side_effect=httpx.TimeoutException("timed out")
+    )
     config = {
         "fact": {
             "api": [{
-                "endpoint": "https://httpbin.org/delay/5",
+                "endpoint": "https://example.com/delay/5",
                 "method": "GET",
                 "expected_status": 200,
                 "timeout": 1,
@@ -164,7 +171,9 @@ async def test_api_check_timeout():
         }
     }
     checker = FactChecker(config=config)
-    report = await checker.verify(Path("/tmp"))
+    with patch("httpx.AsyncClient", return_value=mock_client):
+        report = await checker.verify(Path("/tmp"))
+
     api_checks = [c for c in report.checks if c.check_name == "fact:api"]
     assert len(api_checks) == 1
     assert api_checks[0].severity == Severity.FAIL

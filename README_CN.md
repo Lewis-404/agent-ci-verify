@@ -32,7 +32,7 @@ agent-ci ./agent-output/
 ```
 agent-ci-verify v1.1.0
 Output dir: ./agent-output/
-Checkers: schema, fact, diff
+Checkers: schema, fact, diff, integrity
 
                                📋 Schema Checker
 ┏━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -52,13 +52,14 @@ Checkers: schema, fact, diff
 ╰───────────────────────────────────────────────────────────────────────────╯
 ```
 
-## 三层验证
+## 四层验证
 
 | 层级 | 做什么 | 举例 |
 |------|--------|------|
 | **Schema（格式）** | 格式校验、结构合规、安全扫描 | JSON 合法吗？泄露了 API Key？必选文件在吗？ |
 | **Fact（事实）** | 文件存在性、API 对账、LLM 裁判 | Agent 说生成了 result.json——真的吗？API 返回了 200？ |
 | **Diff（对比）** | 回归检测、语义漂移 | 产出比基线变了多少？相似度跌破阈值了吗？ |
+| **Integrity（完整性）** | Agent ↔ Skill 引用链完整性 | Agent YAML 引用的 skill 存在吗？.layers.yaml 有孤儿条目吗？ |
 
 ## 配置
 
@@ -66,7 +67,7 @@ Checkers: schema, fact, diff
 
 ```yaml
 pipeline:
-  enabled_checkers: [schema, fact, diff]
+  enabled_checkers: [schema, fact, diff, integrity]
   fail_fast: false
 
 schema:
@@ -240,7 +241,7 @@ agent-ci serve
 
 # 健康检查
 curl http://127.0.0.1:8899/health
-# {"status":"ok","version":"1.0.5","checkers":{"schema":"healthy","fact":"healthy","diff":"healthy"}}
+# {"status":"ok","version":"1.0.5","checkers":{"schema":"healthy","fact":"healthy","diff":"healthy","integrity":"healthy"}}
 
 # 通过 API 验证 Agent 产出（需要 API Key）
 curl -X POST http://127.0.0.1:8899/verify \

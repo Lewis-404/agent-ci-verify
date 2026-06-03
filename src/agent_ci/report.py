@@ -3,6 +3,7 @@
 # cspell:ignore Segoe
 
 from datetime import datetime, timezone
+from html import escape
 from pathlib import Path
 from typing import Any
 
@@ -196,7 +197,7 @@ def generate_report(
         sections.append(
             _CHECKER_SECTION.format(
                 icon=icon,
-                title=title,
+                title=_escape_text(title),
                 passed=checker_report.passed,
                 warnings=checker_report.warnings,
                 failed=checker_report.failed,
@@ -221,13 +222,13 @@ def generate_report(
         verdict=verdict,
         verdict_class=verdict_class,
         timestamp=now,
-        output_dir=str(output_dir),
+        output_dir=_escape_text(str(output_dir)),
         checker_sections="\n".join(sections),
         total_pass=total_pass,
         total_warn=total_warn,
         total_fail=total_fail,
         total_checks=total_checks,
-        version=version,
+        version=_escape_text(version),
     )
 
 
@@ -240,17 +241,17 @@ def _build_table_rows(report: Any) -> str:
             if hasattr(check.severity, "value")
             else str(check.severity)
         )
-        badge = f'<span class="badge {severity}"></span>'
+        badge = f'<span class="badge {_escape_attr(severity)}"></span>'
         detail = check.detail or ""
         if len(detail) > 150:
             detail = detail[:147] + "..."
 
         rows.append(
             f'<tr><td>{badge}</td>'
-            f'<td><code>{check.check_name}</code></td>'
-            f'<td>{check.message}</td>'
+            f'<td><code>{_escape_text(check.check_name)}</code></td>'
+            f'<td>{_escape_text(check.message)}</td>'
             f'<td class="detail" title="{_escape_attr(check.detail or "")}">'
-            f"{detail}</td></tr>"
+            f"{_escape_text(detail)}</td></tr>"
         )
 
     return "\n        ".join(rows) if rows else _EMPTY_ROWS
@@ -258,9 +259,9 @@ def _build_table_rows(report: Any) -> str:
 
 def _escape_attr(text: str) -> str:
     """Escape text for HTML attribute."""
-    return (
-        text.replace("&", "&amp;")
-        .replace('"', "&quot;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-    )
+    return escape(str(text), quote=True)
+
+
+def _escape_text(text: str) -> str:
+    """Escape text for HTML text nodes."""
+    return escape(str(text), quote=False)

@@ -111,6 +111,42 @@ async def test_schema_compliance(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_schema_missing_schema_file_fails(tmp_path):
+    """Configured schema paths that cannot be loaded should fail loudly."""
+    (tmp_path / "valid.json").write_text(json.dumps({"status": "ok"}))
+    config = {
+        "schema": {
+            "json_schemas": {str(tmp_path / "missing.schema.json"): "valid.json"}
+        }
+    }
+    checker = SchemaChecker(config=config)
+
+    report = await checker.verify(tmp_path)
+
+    schema_load = [c for c in report.checks if c.check_name == "schema_load"]
+    assert len(schema_load) == 1
+    assert schema_load[0].severity == Severity.FAIL
+    assert "not found" in schema_load[0].detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_schema_invalid_schema_json_fails(tmp_path):
+    """Invalid schema JSON should fail instead of disabling validation silently."""
+    (tmp_path / "valid.json").write_text(json.dumps({"status": "ok"}))
+    schema_path = tmp_path / "broken.schema.json"
+    schema_path.write_text("{not json")
+    config = {"schema": {"json_schemas": {str(schema_path): "valid.json"}}}
+    checker = SchemaChecker(config=config)
+
+    report = await checker.verify(tmp_path)
+
+    schema_load = [c for c in report.checks if c.check_name == "schema_load"]
+    assert len(schema_load) == 1
+    assert schema_load[0].severity == Severity.FAIL
+    assert "Invalid JSON schema" in schema_load[0].detail
+
+
+@pytest.mark.asyncio
 async def test_schema_violation(tmp_path):
     """Test that schema violations are caught."""
     (tmp_path / "bad.json").write_text(json.dumps({"status": 123}))  # status should be string
